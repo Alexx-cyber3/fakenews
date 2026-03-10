@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI News Verifier | Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <h1><i class="fas fa-robot"></i> AI Fake News Detector</h1>
+            <p>Advanced neural analysis for misinformation detection.</p>
+        </header>
+
+        <!-- Left Panel: Inputs -->
+        <div class="input-panel">
+            <div class="card">
+                <h2><i class="fas fa-pen-nib"></i> Article Analysis</h2>
+                <form id="predictionForm">
+                    <textarea id="news_text" name="news_text" rows="8" placeholder="Paste news article or headline here..." required></textarea>
+                    <div class="scanning-loader" id="predictLoader"></div>
+                    <button type="submit" class="btn" id="predictBtn">
+                        <i class="fas fa-search"></i> Run Detection
+                    </button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2><i class="fas fa-globe"></i> Source Credibility</h2>
+                <form id="sourceForm">
+                    <input type="text" id="news_url" name="news_url" placeholder="Enter news domain (e.g., bbc.com)" class="input-field" required>
+                    <div class="scanning-loader" id="sourceLoader"></div>
+                    <button type="submit" class="btn secondary" id="sourceBtn">
+                        <i class="fas fa-shield-alt"></i> Verify Source
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Panel: Results & Analysis -->
+        <div class="analysis-panel">
+            <div class="card result-card" id="analysisResult">
+                <div id="defaultMsg">
+                    <i class="fas fa-chart-pie" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                    <p>Analysis results will appear here after scanning.</p>
+                </div>
+                
+                <div id="predictionContent" style="display: none;">
+                    <div id="predictionBadge" class="prediction-badge"></div>
+                    <div class="confidence-gauge" id="confidenceVal">0%</div>
+                    <p style="color: var(--text-muted);">Confidence Score</p>
+                    <div id="resultDescription" style="margin-top: 1.5rem; font-size: 0.9rem;"></div>
+                </div>
+            </div>
+
+            <div class="card" id="sourceResultCard" style="display: none;">
+                <h3><i class="fas fa-info-circle"></i> Source Info</h3>
+                <p id="sourceResultText" style="margin-top: 1rem; line-height: 1.6;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Prediction Logic
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('predictBtn');
+            const loader = document.getElementById('predictLoader');
+            const text = document.getElementById('news_text').value;
+            
+            // UI State: Scanning
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+            loader.style.display = 'block';
+            
+            const formData = new FormData();
+            formData.append('news_text', text);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+                
+                // Update UI
+                document.getElementById('defaultMsg').style.display = 'none';
+                document.getElementById('predictionContent').style.display = 'block';
+                document.getElementById('predictionContent').className = 'fade-in';
+                
+                const badge = document.getElementById('predictionBadge');
+                badge.innerText = data.prediction;
+                badge.className = 'prediction-badge ' + data.prediction.toLowerCase();
+                
+                document.getElementById('confidenceVal').innerText = data.confidence;
+                document.getElementById('confidenceVal').style.color = 
+                    data.prediction.toLowerCase() === 'real' ? 'var(--real-color)' : 'var(--fake-color)';
+                
+                document.getElementById('resultDescription').innerText = 
+                    data.prediction.toLowerCase() === 'real' ? 
+                    "This article shows characteristics of credible reporting." : 
+                    "Warning: This article contains patterns typical of misinformation.";
+
+            } catch (err) {
+                alert("Analysis failed. Please ensure the model is trained.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search"></i> Run Detection';
+                loader.style.display = 'none';
+            }
+        });
+
+        // Source Check Logic
+        document.getElementById('sourceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('sourceBtn');
+            const loader = document.getElementById('sourceLoader');
+            const url = document.getElementById('news_url').value;
+
+            btn.disabled = true;
+            loader.style.display = 'block';
+
+            const formData = new FormData();
+            formData.append('news_url', url);
+
+            try {
+                const response = await fetch('/check_source', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await response.json();
+                
+                const sourceCard = document.getElementById('sourceResultCard');
+                sourceCard.style.display = 'block';
+                sourceCard.className = 'card fade-in';
+                document.getElementById('sourceResultText').innerText = data.source_result;
+            } catch (err) {
+                alert("Verification failed.");
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
